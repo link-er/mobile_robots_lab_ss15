@@ -1,0 +1,9 @@
+<robot name="ardrone">
+  <link name="drone">
+    <visual>
+      <geometry>
+        <sphere radius="0.2" />
+      </geometry>
+    </visual>
+  </link>
+</robot>
