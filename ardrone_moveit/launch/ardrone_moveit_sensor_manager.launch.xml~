@@ -1,0 +1,3 @@
+<launch>
+  <!-- <rosparam command="load" file="$(find ardrone_moveit)/config/ardrone_sensors.yaml" /> -->
+</launch>

@@ -21,8 +21,6 @@ catkin_package(
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
-add_executable(robo_3_0 src/robo_3_0.cpp)
 add_executable(robo_3_1 src/robo_3_1.cpp)
-target_link_libraries(robo_3_0 ${roscpp_LIBRARIES})
 target_link_libraries(robo_3_1 ${roscpp_LIBRARIES})
 

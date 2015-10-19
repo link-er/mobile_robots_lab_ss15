@@ -12,7 +12,6 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <sensor_msgs/LaserScan.h>
-#define PI 3.14159265
 
 // Class definition
 class Legs_follower {
@@ -23,10 +22,11 @@ public:
     void calculateCommand();
     void mainLoop();
     static const double EMERGENCY = 0.3;
-    static const double KNOWN_WIDTH = 18;
-    static const double KNOWN_BETWEEN = 20;
-    static const double KNOWN_DISTANCE = 0.5;
-    static const double DEVIATION = 6;
+    static const double EDGE_THRESHOLD = 1;
+    static const double KNOWN_WIDTH = 8;
+    static const double KNOWN_BETWEEN = 10;
+    static const double KNOWN_DISTANCE = 1.5;
+    static const double DEVIATION = 10;
 
 protected:
 
@@ -51,12 +51,6 @@ Legs_follower::Legs_follower() {
     // Initialising the node handle
     m_laserSubscriber  = m_nodeHandle.subscribe<sensor_msgs::LaserScan>("laserscan", 20, &Legs_follower::laserCallback, this);
     m_commandPublisher = m_nodeHandle.advertise<geometry_msgs::Twist> ("cmd_vel", 20);
-
-    // Initialize the random generator
-    // take the time to get random results
-       // srand(unsigned(time(0)));
-    // or take a seed to be able to reproduce the results
-    srand(21);    // seed
 
 }// end of Random_mover constructor
 
@@ -99,24 +93,21 @@ void Legs_follower::emergencyStop() {
 // here we go
 // this is the place where we will generate the commands for the robot
 void Legs_follower::calculateCommand() {
-      static bool have_scan = false;
-
       // see if we have laser data
       if( (&m_laserscan)->ranges.size() > 0)
       {
-            have_scan = true;
         //get derivative
         double derivative[540];
-          derivative[0] = 0;
-          derivative[539] = 0;
-          FILE* scan = fopen("r.dat", "w");
-          for(unsigned int i=1; i<539; i++)
-                derivative[i] = (1.0/2.0)*(-m_laserscan.ranges[i-1] + m_laserscan.ranges[i+1]);
+        derivative[0] = 0;
+        derivative[539] = 0;
+        FILE* scan = fopen("r.dat", "w");
+        for(unsigned int i=1; i<539; i++)
+            derivative[i] = (1.0/2.0)*(-m_laserscan.ranges[i-1] + m_laserscan.ranges[i+1]);
 
         ROS_INFO("-----------Finding edges--------------");
         double edges[540];
         for(int i=0; i<540; i++)
-              edges[i] = 0;
+            edges[i] = 0;
         int edgesCount = 0;
         for( int i=0; i<540; i++) {
             if(derivative[i]<=-0.8 || derivative[i]>=0.8) {
@@ -195,7 +186,7 @@ void Legs_follower::calculateCommand() {
             if(!hasPositive && !hasNegative)
                 infoStringEdges[i] = '_';
         }
-    infoStringEdges[54] = 0;
+        infoStringEdges[54] = 0;
         ROS_INFO("%s", infoStringEdges);
 
         //try find legs
@@ -203,29 +194,23 @@ void Legs_follower::calculateCommand() {
         int legs[540];
         int legStart = -1, widthCounter, legsCount = 0;
         double averageDistance = 0, probableWidth;
-        double ourWidth;
         for(int i=0; i<540; i++)
               legs[i] = 0.0;
         for(int i = 0; i< 540; i++) {
             if(reducedEdges[i]<0)
                 legStart = i;
             if(legStart != -1 && reducedEdges[i]>0) {
-                  ROS_INFO("------------Have leg start at %d and leg end at %d", legStart, i);
-                /*widthCounter = 0;
+                ROS_INFO("------------Have leg start at %d and leg end at %d", legStart, i);
+                widthCounter = 0;
                 averageDistance = 0;
                 while(legStart + widthCounter <= i) {
                     averageDistance += m_laserscan.ranges[legStart + widthCounter];
                     widthCounter++;
                 }
-                  ROS_INFO("------------Average distance %f", averageDistance/widthCounter);
+                ROS_INFO("------------Average distance %f", averageDistance/widthCounter);
                 probableWidth = KNOWN_WIDTH * (averageDistance/widthCounter) / KNOWN_DISTANCE;
-                  ROS_INFO("------------Displayed width %d, wanted width %f", i - legStart, probableWidth);*/
-                  ourWidth = sqrt (m_laserscan.ranges[legStart]*m_laserscan.ranges[legStart] +
-                  	m_laserscan.ranges[i]*m_laserscan.ranges[i] -
-                  	2*m_laserscan.ranges[legStart]*m_laserscan.ranges[i]*cos ( (i-legStart) * PI / 360.0 ));
-                  ROS_INFO("------------Got width %f", ourWidth);
-                //if(i - legStart <= probableWidth + DEVIATION && i - legStart >= probableWidth - DEVIATION) {
-                if(ourWidth <= 0.2 + 0.1 && ourWidth >= 0.2 - 0.1) {
+                ROS_INFO("------------Displayed width %d, wanted width %f", i - legStart, probableWidth);
+                if(i - legStart <= probableWidth + DEVIATION && i - legStart >= probableWidth - DEVIATION) {
                     widthCounter = legStart;
                     while(widthCounter <= i) {
                         legs[widthCounter] = 1;
@@ -280,17 +265,12 @@ void Legs_follower::calculateCommand() {
             if(legs[i]==1 && legStartedAt==-1) {
                 legStartedAt = i;
                 if(legFinishedAt!=-1) {
-                      ROS_INFO("------------Have first leg finished at %d and second leg started at %d", legFinishedAt, i);
-                    /*averageDistance = (m_laserscan.ranges[legFinishedAt] + m_laserscan.ranges[legStartedAt])/2.0;
-                  ROS_INFO("------------Average distance %f", averageDistance);
+                    ROS_INFO("------------Have first leg finished at %d and second leg started at %d", legFinishedAt, i);
+                    averageDistance = (m_laserscan.ranges[legFinishedAt] + m_laserscan.ranges[legStartedAt])/2.0;
+                    ROS_INFO("------------Average distance %f", averageDistance);
                     probableBetween = KNOWN_BETWEEN * averageDistance / KNOWN_DISTANCE;
-                  ROS_INFO("------------Displayed between %d, wanted between %f", i - legFinishedAt, probableBetween);*/
-                  ourWidth = sqrt (m_laserscan.ranges[legFinishedAt]*m_laserscan.ranges[legFinishedAt] +
-                  	m_laserscan.ranges[legStartedAt]*m_laserscan.ranges[legStartedAt] -
-                  	2*m_laserscan.ranges[legStartedAt]*m_laserscan.ranges[legFinishedAt]*cos ( (legStartedAt-legFinishedAt) * PI / 360.0 ));
-                  ROS_INFO("------------Got width %f", ourWidth);
-                    //if(i - legFinishedAt <= probableBetween + DEVIATION && i - legFinishedAt >= probableBetween - DEVIATION) {
-                if(ourWidth <= 0.25 + 0.1 && ourWidth >= 0.25 - 0.1) {
+                    ROS_INFO("------------Displayed between %d, wanted between %f", i - legFinishedAt, probableBetween);
+                    if(i - legFinishedAt <= probableBetween + DEVIATION && i - legFinishedAt >= probableBetween - DEVIATION) {
                         betweenCounter = legFinishedAt;
                         while(betweenCounter <= i) {
                             men[betweenCounter] = 1;
@@ -314,7 +294,7 @@ void Legs_follower::calculateCommand() {
             else
                 infoStringMen[i] = '_';
         }
-    infoStringMen[54] = 0;
+        infoStringMen[54] = 0;
         ROS_INFO("%s", infoStringMen);
 
         for(int i = 0; i< 540; i++)
@@ -327,20 +307,20 @@ void Legs_follower::calculateCommand() {
                       legs[i],
                       men[i]);
         fclose(scan);
-        
+
         //move to the man
         hasMan = false;
         for(int i = 0; i< 540; i++) {
-        	if(men[i]==1){
-        		m_roombaCommand.linear.x = (m_laserscan.ranges[i-2]-0.5)/20;
-        		m_roombaCommand.angular.z = (i-270)/200;
-        		hasMan = true;
-        		break;
-        	}
+            if(men[i]==1){
+                m_roombaCommand.linear.x = (m_laserscan.ranges[i-2]-0.5)/20;
+                m_roombaCommand.angular.z = (i-270)/200;
+                hasMan = true;
+                break;
+            }
         }
         if(!hasMan) {
-        	m_roombaCommand.linear.x = 0;
-        	m_roombaCommand.angular.z = 0;
+            m_roombaCommand.linear.x = 0;
+            m_roombaCommand.angular.z = 0;
         }
     }//end of have laser
 
@@ -359,8 +339,6 @@ void Legs_follower::mainLoop() {
         calculateCommand();
         emergencyStop();
 
-        ROS_INFO(" robot speed: (.x=%f, .z==%f)", m_roombaCommand.linear.x, m_roombaCommand.angular.z);
-
         // send the command to the roomrider for execution
         m_commandPublisher.publish(m_roombaCommand);
 
@@ -377,11 +355,10 @@ int main(int argc, char** argv) {
     // initialize
     ros::init(argc, argv, "Leg_follower");
 
-    // get an object of type Random_mover and call it randy_robot
+    // get an object of type Legs_follower and call it robby
     Legs_follower robby;
 
     // main loop
-    // make randy_robot do whatever randy_robot wants to do
     robby.mainLoop();
 
     return 0;
