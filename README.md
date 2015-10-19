@@ -6,18 +6,31 @@ Package, that was generated with the help of moveit_setup_assistant by urdf-file
 
 ##drone_lab
 Contains several files for mini-project and sources of the experiments with drone.
+
 1 - ardrone.urdf - description of the drone for moveit_setup
+
 2 - calibration_front.cfg - config file for front camera of the Parrot AR.Drone type 1.0 for using with lsd_slam package
+
 3 - path.txt - one of the generated trajectories from moveit planner
+
 4 - pc.ply and pc1.ply - two example point clouds to play with
+
 executables:
+
 1 - analyze_image - trying to hover over a color spot
+
 2 - detect-direction - trying to find the direction from the triangle and hover on it
+
 3 - fly_and_show - simple displaying two images from front and bottom cameras
+
 4 - land - send command for landing
+
 5 - record_video - recording video from bottom camera, writes file to "/home/ropra/ros_world/LAB_SS15_GR05/out.avi" - just change it in case of need
+
 6 - reset - send command for resetting drone
+
 7 - takeoff - just get up and hover for a few seconds and then land
+
 All the executables should be run with simple rosrun and roscore and ardrone_driver already started.
 
 ##experiment_03
